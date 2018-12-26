@@ -20,8 +20,9 @@ namespace SystemIoPipelinesDemo
                 var cancellationTokenSource = new CancellationTokenSource();
                 var streamPipelines = new IStreamPipeline[] {
                     //new ReadFileStreamPipeline(path: $@"blabla.jpg")
-                    new ReadHttpClientStreamPipeline(url: $@"https://upload.wikimedia.org/wikipedia/commons/f/fe/01R_Oct_12_2012_0905Z.jpg")
-                    , new WriteFileStreamPipeline(path: $@"blabla_copied.jpg")
+                    //new ReadHttpClientStreamPipeline(url: $@"https://upload.wikimedia.org/wikipedia/commons/7/7d/01-W_Feb_20_2012_0310Z.jpg")
+                    new ReadS3StreamPipeline(bucket: "alicebobbucket", key: "01-W_Feb_20_2012_0310Z.jpg")
+                    , new WriteFileStreamPipeline(path: $@"C:\Users\mon_m\Pictures\wikipedia\tropical_depression.jpg")
                 };
 
                 var tasks = Task.WhenAll(streamPipelines
