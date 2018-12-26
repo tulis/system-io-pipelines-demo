@@ -3,6 +3,7 @@ using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SystemIoPipelinesDemo
@@ -18,11 +19,13 @@ namespace SystemIoPipelinesDemo
         /// </summary>
         /// <param name="pipe"></param>
         /// <param name="path">File Path to be read</param>
+        /// <param name="cancellationTokenSource"></param>
         /// <returns></returns>
-        public async Task Read(Pipe pipe, string path)
+        public async Task Read(Pipe pipe, string path, CancellationTokenSource cancellationTokenSource)
         {
             if(pipe == null)
             {
+                cancellationTokenSource.Cancel();
                 throw new ArgumentException(
                     message: $"[{nameof(pipe)}] is not provided."
                     , paramName: nameof(pipe));
@@ -30,6 +33,7 @@ namespace SystemIoPipelinesDemo
 
             if (String.IsNullOrWhiteSpace(path))
             {
+                cancellationTokenSource.Cancel();
                 throw new ArgumentException(
                     message: $"[{nameof(path)}] is not provided."
                     , paramName: nameof(path));
@@ -40,7 +44,7 @@ namespace SystemIoPipelinesDemo
                 while (true)
                 {
                     Memory<byte> buffer = pipe.Writer.GetMemory(1);
-                    int bytes = await fileStream.ReadAsync(buffer);
+                    int bytes = await fileStream.ReadAsync(buffer, cancellationTokenSource.Token);
                     pipe.Writer.Advance(bytes);
 
                     if (bytes == 0)
@@ -49,7 +53,7 @@ namespace SystemIoPipelinesDemo
                         break;
                     }
 
-                    var flush = await pipe.Writer.FlushAsync();
+                    var flush = await pipe.Writer.FlushAsync(cancellationTokenSource.Token);
                     if (flush.IsCompleted || flush.IsCanceled)
                     {
                         break;
@@ -65,19 +69,29 @@ namespace SystemIoPipelinesDemo
         /// </summary>
         /// <param name="pipe"></param>
         /// <param name="path">File path to written into</param>
+        /// <param name="cancellationTokenSource"></param>
         /// <returns></returns>
-        public async Task Write(Pipe pipe, string path)
+        public async Task Write(Pipe pipe, string path, CancellationTokenSource cancellationTokenSource)
         {
             if (pipe == null)
             {
+                cancellationTokenSource.Cancel();
                 throw new ArgumentException(
                     message: $"[{nameof(pipe)}] is not provided."
                     , paramName: nameof(pipe));
             }
             if (String.IsNullOrWhiteSpace(path))
             {
+                cancellationTokenSource.Cancel();
                 throw new ArgumentException(
                     message: $"[{nameof(path)}] is not provided."
+                    , paramName: nameof(path));
+            }
+            if(File.Exists(path))
+            {
+                cancellationTokenSource.Cancel();
+                throw new ArgumentException(
+                    message: $"[{nameof(path)}: \"{path}\"] is already exists. Please provide different path."
                     , paramName: nameof(path));
             }
             using (var file = new FileStream(path, FileMode.Append, FileAccess.Write))
@@ -95,18 +109,18 @@ namespace SystemIoPipelinesDemo
                     {
                         // append it to the file
                         bool leased = false;
-                        if (!MemoryMarshal.TryGetArray(segment, out var arr))
+                        if (!MemoryMarshal.TryGetArray(segment, out var arraySegment))
                         {
                             byte[] temporary = ArrayPool<byte>.Shared.Rent(segment.Length);
                             segment.CopyTo(temporary);
-                            arr = new ArraySegment<byte>(temporary, 0, segment.Length);
+                            arraySegment = new ArraySegment<byte>(temporary, offset: 0, count: segment.Length);
                             leased = true;
                         }
-                        await file.WriteAsync(arr.Array, arr.Offset, arr.Count);
-                        await file.FlushAsync();
+                        await file.WriteAsync(arraySegment.Array, arraySegment.Offset, arraySegment.Count, cancellationTokenSource.Token);
+                        await file.FlushAsync(cancellationTokenSource.Token);
                         if (leased)
                         {
-                            ArrayPool<byte>.Shared.Return(arr.Array);
+                            ArrayPool<byte>.Shared.Return(arraySegment.Array);
                         }
                     }
 

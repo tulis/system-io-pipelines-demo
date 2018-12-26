@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SystemIoPipelinesDemo
@@ -12,12 +13,27 @@ namespace SystemIoPipelinesDemo
     {
         static async Task Main(string[] args)
         {
-            var program = new Program();
-            var fileStreamPipeline = new FileStreamPipeline();
-            var readFileTask = fileStreamPipeline.Read(program.Pipe, path: $@"blabla.jpg");
-            var writeFileTask = fileStreamPipeline.Write(program.Pipe, path: $@"blabla_copied.jpg");
+            try
+            {
+                var program = new Program();
+                var fileStreamPipeline = new FileStreamPipeline();
+                var cancellationTokenSource = new CancellationTokenSource();
+                var readFileTask = fileStreamPipeline.Read(
+                    program.Pipe
+                    , path: $@"blabla.jpg"
+                    , cancellationTokenSource: cancellationTokenSource);
+                var writeFileTask = fileStreamPipeline.Write(
+                    program.Pipe
+                    , path: $@"blabla_copied.jpg"
+                    , cancellationTokenSource: cancellationTokenSource);
+                var tasks = Task.WhenAll(readFileTask, writeFileTask);
 
-            await Task.WhenAll(readFileTask, writeFileTask);
+                await tasks;
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"ERROR - {exception.Message}");
+            }
 
             Console.WriteLine("Press any key to continue...");
             Console.ReadLine();
