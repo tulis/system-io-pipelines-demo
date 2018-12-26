@@ -19,7 +19,8 @@ namespace SystemIoPipelinesDemo
                 var program = new Program();
                 var cancellationTokenSource = new CancellationTokenSource();
                 var streamPipelines = new IStreamPipeline[] {
-                    new ReadFileStreamPipeline(path: $@"blabla.jpg")
+                    //new ReadFileStreamPipeline(path: $@"blabla.jpg")
+                    new ReadHttpClientStreamPipeline(url: $@"https://upload.wikimedia.org/wikipedia/commons/f/fe/01R_Oct_12_2012_0905Z.jpg")
                     , new WriteFileStreamPipeline(path: $@"blabla_copied.jpg")
                 };
 
