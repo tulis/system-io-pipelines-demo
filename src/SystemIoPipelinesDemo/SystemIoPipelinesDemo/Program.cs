@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,17 +17,16 @@ namespace SystemIoPipelinesDemo
             try
             {
                 var program = new Program();
-                var fileStreamPipeline = new FileStreamPipeline();
                 var cancellationTokenSource = new CancellationTokenSource();
-                var readFileTask = fileStreamPipeline.Read(
-                    program.Pipe
-                    , path: $@"blabla.jpg"
-                    , cancellationTokenSource: cancellationTokenSource);
-                var writeFileTask = fileStreamPipeline.Write(
-                    program.Pipe
-                    , path: $@"blabla_copied.jpg"
-                    , cancellationTokenSource: cancellationTokenSource);
-                var tasks = Task.WhenAll(readFileTask, writeFileTask);
+                var streamPipelines = new IStreamPipeline[] {
+                    new ReadFileStreamPipeline(path: $@"blabla.jpg")
+                    , new WriteFileStreamPipeline(path: $@"blabla_copied.jpg")
+                };
+
+                var tasks = Task.WhenAll(streamPipelines
+                    .Select(streamPipeline => streamPipeline
+                        .Stream(program.Pipe, cancellationTokenSource))
+                    .ToArray());
 
                 await tasks;
             }
